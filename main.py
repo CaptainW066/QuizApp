@@ -2,17 +2,45 @@ import flet as ft
 import re
 import random
 import traceback 
+import time
 
 def main(page: ft.Page):
+    # ==========================================
+    # 终极防御：第 0 步 - 毫秒级抢占渲染，打破白屏
+    # ==========================================
+    page.title = "刷题神器"
+    page.theme_mode = ft.ThemeMode.LIGHT
+    page.theme = ft.Theme(color_scheme_seed=ft.colors.BLUE, use_material3=True)
+    page.padding = 0
+    page.bgcolor = ft.colors.GREY_100 
+    page.scroll = ft.ScrollMode.ADAPTIVE
+
+    # 强制先渲染一个 Loading 界面，防止初始化耗时导致的底层渲染崩溃
+    loading_view = ft.View(
+        "/loading",
+        bgcolor=ft.colors.GREY_100,
+        controls=[
+            ft.Container(
+                content=ft.Column([
+                    ft.ProgressRing(color=ft.colors.BLUE, stroke_width=4),
+                    ft.Container(height=20),
+                    ft.Text("引擎启动中，请稍候...", color=ft.colors.BLUE_700, size=18, weight=ft.FontWeight.BOLD)
+                ], alignment=ft.MainAxisAlignment.CENTER, horizontal_alignment=ft.CrossAxisAlignment.CENTER),
+                expand=True,
+                alignment=ft.alignment.center
+            )
+        ]
+    )
+    page.views.clear()
+    page.views.append(loading_view)
+    page.update()
+
+    # ==========================================
+    # 核心业务逻辑 (放在 try-except 中安全执行)
+    # ==========================================
     try:
-        # App 基础设置与高级 UI 主题
-        page.title = "刷题神器"
-        page.theme_mode = ft.ThemeMode.LIGHT
-        # 启用 Material 3 设计语言，以蓝色为主色调
-        page.theme = ft.Theme(color_scheme_seed=ft.colors.BLUE, use_material3=True)
-        page.padding = 0
-        page.bgcolor = ft.colors.GREY_100 # 浅灰背景反衬白色卡片
-        page.scroll = ft.ScrollMode.ADAPTIVE
+        # 故意稍微延迟一下让 UI 引擎有喘息和绘制的时间 (模拟器非常需要)
+        time.sleep(0.3)
 
         # 安全读取本地存储数据
         try:
@@ -162,7 +190,6 @@ def main(page: ft.Page):
             else:
                 for b_name, qs in state["banks"].items():
                     total_q += len(qs)
-                    # 每一项做成圆角小卡片，防误触
                     row = ft.Container(
                         content=ft.Row([
                             ft.Checkbox(label=f"{b_name}\n({len(qs)}题)", value=state["selected_banks"].get(b_name, True), 
@@ -212,7 +239,6 @@ def main(page: ft.Page):
                 state["user_selected_texts"].clear()
                 build_quiz_view()
 
-            # 首页的 App 原生顶栏
             app_bar = ft.AppBar(
                 title=ft.Text("刷题神器", weight=ft.FontWeight.BOLD, color=ft.colors.WHITE),
                 center_title=True,
@@ -220,7 +246,6 @@ def main(page: ft.Page):
                 elevation=2
             )
 
-            # 导入按钮设计
             import_btn = ft.ElevatedButton(
                 content=ft.Row([ft.Icon(ft.icons.UPLOAD_FILE), ft.Text("导入 TXT 题库", size=18, weight=ft.FontWeight.BOLD)], alignment=ft.MainAxisAlignment.CENTER),
                 style=ft.ButtonStyle(
@@ -241,7 +266,6 @@ def main(page: ft.Page):
                 controls=[
                     import_btn,
                     ft.Container(height=10),
-                    # 本地题库卡片
                     ft.Card(
                         elevation=2,
                         surface_tint_color=ft.colors.WHITE,
@@ -258,7 +282,6 @@ def main(page: ft.Page):
                         )
                     ),
                     ft.Container(height=10),
-                    # 设置区域卡片
                     ft.Card(
                         elevation=2,
                         surface_tint_color=ft.colors.WHITE,
@@ -271,14 +294,13 @@ def main(page: ft.Page):
                             ])
                         )
                     ),
-                    ft.Container(expand=True), # 占位推到底部
-                    # 底部固定的大尺寸开始按钮
+                    ft.Container(expand=True), 
                     ft.ElevatedButton(
                         content=ft.Row([ft.Icon(ft.icons.PLAY_ARROW_ROUNDED, size=28), ft.Text("开始刷题", size=20, weight=ft.FontWeight.BOLD)], alignment=ft.MainAxisAlignment.CENTER),
                         style=ft.ButtonStyle(
                             color=ft.colors.WHITE,
                             bgcolor=ft.colors.GREEN_600,
-                            shape=ft.RoundedRectangleBorder(radius=30), # 胶囊形状
+                            shape=ft.RoundedRectangleBorder(radius=30), 
                             padding=20
                         ),
                         on_click=on_start_click,
@@ -291,7 +313,7 @@ def main(page: ft.Page):
             page.update()
 
         # ==========================================
-        # 2. 答题视图 (卡片化，大字号优化)
+        # 2. 答题视图
         # ==========================================
         def build_quiz_view():
             if state["current_idx"] >= len(state["quiz_questions"]):
@@ -302,18 +324,16 @@ def main(page: ft.Page):
             is_multi = '多选' in q['type']
             opt_keys = sorted(q['options'].keys())
             
-            # 顶栏：显示进度
             app_bar = ft.AppBar(
                 title=ft.Text(f"进度 {state['current_idx'] + 1} / {len(state['quiz_questions'])}", size=18, color=ft.colors.WHITE),
                 center_title=True,
                 bgcolor=ft.colors.BLUE,
-                leading=ft.IconButton(icon=ft.icons.CLOSE, icon_color=ft.colors.WHITE, on_click=lambda _: build_menu_view()) # 退出按钮
+                leading=ft.IconButton(icon=ft.icons.CLOSE, icon_color=ft.colors.WHITE, on_click=lambda _: build_menu_view())
             )
             
             progress_val = state["current_idx"] / len(state["quiz_questions"])
             pb = ft.ProgressBar(value=progress_val, color=ft.colors.GREEN, bgcolor=ft.colors.BLUE_100, height=5)
             
-            # 题目卡片
             q_title = ft.Text(f"【{q['type']}】", color=ft.colors.BLUE_700, weight=ft.FontWeight.BOLD, size=16)
             q_text = ft.Text(q['question'], size=18, weight=ft.FontWeight.W_500)
             
@@ -321,7 +341,6 @@ def main(page: ft.Page):
             opt_controls = {}
             cg = ft.RadioGroup(content=options_column) if not is_multi else None
 
-            # 放大的选项区域
             for opt in opt_keys:
                 text_label = f"{opt}、{q['options'][opt]}"
                 if is_multi:
@@ -335,7 +354,6 @@ def main(page: ft.Page):
 
             feedback_text = ft.Text("", size=18, weight=ft.FontWeight.BOLD)
             
-            # 底部按钮区 (左右布局优化)
             btn_submit = ft.ElevatedButton("提交答案", bgcolor=ft.colors.BLUE_600, color=ft.colors.WHITE, expand=True, height=50, style=ft.ButtonStyle(shape=ft.RoundedRectangleBorder(radius=15)))
             btn_next = ft.ElevatedButton("下一题", bgcolor=ft.colors.GREEN_600, color=ft.colors.WHITE, expand=True, height=50, disabled=True, style=ft.ButtonStyle(shape=ft.RoundedRectangleBorder(radius=15)))
             btn_prev = ft.OutlinedButton("上一题", expand=True, height=50, disabled=(state["current_idx"]==0), style=ft.ButtonStyle(shape=ft.RoundedRectangleBorder(radius=15)))
@@ -391,14 +409,13 @@ def main(page: ft.Page):
                 "/quiz",
                 appbar=app_bar,
                 bgcolor=ft.colors.GREY_100,
-                padding=0, # 外层无内边距，为了让进度条贴紧
+                padding=0, 
                 controls=[
                     pb,
                     ft.Container(
                         padding=20,
                         expand=True,
                         content=ft.Column([
-                            # 题目与选项包裹在卡片中
                             ft.Card(
                                 elevation=2,
                                 surface_tint_color=ft.colors.WHITE,
@@ -414,22 +431,19 @@ def main(page: ft.Page):
                                 )
                             ),
                             ft.Container(height=10),
-                            # 结果反馈区
                             ft.Container(
                                 content=feedback_text,
                                 alignment=ft.alignment.center,
                                 padding=10
                             ),
                             ft.Container(expand=True),
-                            # 底部操作栏
                             action_row,
-                            ft.Container(height=10) # 底部留白防遮挡
+                            ft.Container(height=10) 
                         ])
                     )
                 ]
             )
             
-            # 如果是返回上一题，恢复其状态
             if state["current_idx"] in state["user_answers"]:
                 btn_submit.disabled = True
                 btn_next.disabled = False
@@ -452,7 +466,7 @@ def main(page: ft.Page):
             page.update()
 
         # ==========================================
-        # 3. 成绩单与错题回顾 (优雅布局)
+        # 3. 成绩单与错题回顾
         # ==========================================
         def build_result_view():
             score = sum(state["user_answers"].values())
@@ -474,7 +488,6 @@ def main(page: ft.Page):
                 dlg.open = True
                 page.update()
 
-            # 顶部大分数值
             score_card = ft.Container(
                 content=ft.Column([
                     ft.Text("你的得分", size=16, color=ft.colors.GREY_600),
@@ -495,7 +508,6 @@ def main(page: ft.Page):
                     u_ans = state["user_selected_texts"].get(idx, "未选")
                     c_ans = q['answer']
                     
-                    # 错题解析精美卡片
                     card = ft.Card(
                         elevation=1,
                         surface_tint_color=ft.colors.WHITE,
@@ -564,34 +576,33 @@ def main(page: ft.Page):
             import threading
             threading.Timer(0.6, show_egg).start()
 
-        # 一切准备就绪，加载首页
+        # 加载完所有组件后，进入首页替换掉 Loading 界面
         build_menu_view()
 
-    # 万一出错了，拦截错误输出到屏幕上
+    # ==========================================
+    # 终极错误捕获：直接输出到屏幕最顶层
+    # ==========================================
     except Exception as e:
         error_msg = traceback.format_exc()
-        error_view = ft.View(
-            "/error",
-            padding=20,
-            controls=[
-                ft.SafeArea(
-                    ft.Column([
-                        ft.Icon(ft.icons.ERROR_OUTLINE, size=60, color=ft.colors.RED),
-                        ft.Text("🚨 哎呀，程序崩溃了", color=ft.colors.RED, size=24, weight=ft.FontWeight.BOLD),
-                        ft.Text("请截屏以下代码发送给开发者以供修复：", color=ft.colors.GREY_700),
-                        ft.Divider(),
-                        ft.Text(f"错误简述: {e}", color=ft.colors.RED_700, weight=ft.FontWeight.BOLD),
-                        ft.Container(
-                            content=ft.Text(error_msg, size=11, color=ft.colors.RED_400),
-                            bgcolor=ft.colors.RED_50, border=ft.border.all(1, ft.colors.RED_200),
-                            padding=10, border_radius=8, expand=True
-                        )
-                    ], expand=True)
-                )
-            ]
-        )
+        
+        # 为了绝对安全，不用复杂组件，直接用最底层的 page.add
         page.views.clear()
-        page.views.append(error_view)
+        page.add(
+            ft.SafeArea(
+                ft.Column([
+                    ft.Icon(ft.icons.ERROR_OUTLINE, size=60, color=ft.colors.RED),
+                    ft.Text("🚨 哎呀，程序崩溃了", color=ft.colors.RED, size=24, weight=ft.FontWeight.BOLD),
+                    ft.Text("如果能看到这段字，说明底层没崩，代码报错了：", color=ft.colors.GREY_700),
+                    ft.Divider(),
+                    ft.Text(f"错误简述: {e}", color=ft.colors.RED_700, weight=ft.FontWeight.BOLD),
+                    ft.Container(
+                        content=ft.Text(error_msg, size=11, color=ft.colors.RED_400),
+                        bgcolor=ft.colors.RED_50, border=ft.border.all(1, ft.colors.RED_200),
+                        padding=10, border_radius=8, expand=True
+                    )
+                ], expand=True)
+            )
+        )
         page.update()
 
 if __name__ == '__main__':
