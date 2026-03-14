@@ -8,10 +8,9 @@ on:
 jobs:
   build:
     runs-on: ubuntu-latest
-    # 新增：强制忽略 Node.js 20 弃用警告并使用 Node 24，修复 actions 崩溃问题
+    # 保留强制使用 Node 24，删除冲突的另一行配置
     env:
       FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
-      ACTIONS_ALLOW_USE_UNSECURE_NODE_VERSION: true
 
     steps:
       - name: Checkout code
@@ -41,8 +40,8 @@ jobs:
           sudo apt-get install -y ninja-build clang cmake pkg-config libgtk-3-dev
       
       - name: Build APK using Flet
-        # Flet 官方命令行工具，直接将 Python 代码编译为安卓 APK
-        run: flet build apk
+        # 使用 yes | 强行自动回复 "y"，解决云端无法手动确认安装 SDK 的报错
+        run: yes | flet build apk
 
       - name: Upload APK artifact
         uses: actions/upload-artifact@v4
